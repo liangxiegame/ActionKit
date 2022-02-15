@@ -1,11 +1,11 @@
 /****************************************************************************
- * Copyright (c) 2018 ~ 2022 liangxie
+ * Copyright (c) 2018 ~ 2022 liangxiegame UNDER MIT LICENSE
  * 
  * https://qframework.cn
  * https://github.com/liangxiegame/QFramework
  * https://gitee.com/liangxiegame/QFramework
  *
- * Latest Update: 2021.2.15 11:48 this.Delay Add Return Value
+ * Latest Update: 2021.2.15 14:18 Add Simple ECA Pattern
  ****************************************************************************/
 
 using System;
@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace QFramework
 {
@@ -1379,10 +1380,9 @@ namespace QFramework
             mStateDict.Clear();
         }
     }
-    
+
     public interface IAction : IDisposable
     {
-
         bool Disposed { get; }
 
         bool Execute(float delta);
@@ -1393,20 +1393,21 @@ namespace QFramework
 
         bool Finished { get; }
     }
-    
+
     [System.Serializable]
     public class ActionData
     {
         [SerializeField] public string ActionName;
         [SerializeField] public string AcitonData;
     }
+
     public interface INode
     {
         IAction CurrentExecutingNode { get; }
     }
-    
+
     [Serializable]
-    public abstract class ActionKitAction :  IAction
+    public abstract class ActionKitAction : IAction
     {
         public System.Action OnBeganCallback = null;
         public System.Action OnEndedCallback = null;
@@ -1535,12 +1536,11 @@ namespace QFramework
 
         #endregion
     }
-    
+
     public class OnlyUsedByCodeAttribute : Attribute
     {
-        
     }
-    
+
     public class ActionGroupAttribute : Attribute
     {
         public readonly string GroupName;
@@ -1550,7 +1550,7 @@ namespace QFramework
             GroupName = groupName;
         }
     }
-    
+
     /// <summary>
     /// 支持链式方法
     /// </summary>
@@ -1582,7 +1582,7 @@ namespace QFramework
             mSequenceNode = null;
         }
     }
-    
+
     public class RepeatNodeChain : ActionChain
     {
         protected override ActionKitAction mNode
@@ -1621,19 +1621,19 @@ namespace QFramework
             mSequenceNode = null;
         }
     }
-    
+
     public interface IDisposeWhen : IDisposeEventRegister
     {
         IDisposeEventRegister DisposeWhen(Func<bool> condition);
     }
-    
+
     public interface IDisposeEventRegister
     {
         void OnDisposed(System.Action onDisposedEvent);
 
         IDisposeEventRegister OnFinished(System.Action onFinishedEvent);
     }
-    
+
     public static class IActionExtension
     {
         public static T ExecuteNode<T>(this T selBehaviour, IAction commandNode) where T : MonoBehaviour
@@ -1643,7 +1643,7 @@ namespace QFramework
         }
 
         private static WaitForEndOfFrame mEndOfFrame = new WaitForEndOfFrame();
-        
+
         public static IEnumerator Execute(this IAction selfNode)
         {
             if (selfNode.Finished) selfNode.Reset();
@@ -1654,19 +1654,19 @@ namespace QFramework
             }
         }
     }
-    
+
     public static partial class IActionChainExtention
     {
         public static IActionChain Repeat<T>(this T selfbehaviour, int count = -1) where T : MonoBehaviour
         {
-            var retNodeChain = new RepeatNodeChain(count) {Executer = selfbehaviour};
+            var retNodeChain = new RepeatNodeChain(count) { Executer = selfbehaviour };
             retNodeChain.DisposeWhenGameObjectDestroyed(selfbehaviour);
             return retNodeChain;
         }
 
         public static IActionChain Sequence<T>(this T selfbehaviour) where T : MonoBehaviour
         {
-            var retNodeChain = new SequenceNodeChain {Executer = selfbehaviour};
+            var retNodeChain = new SequenceNodeChain { Executer = selfbehaviour };
             retNodeChain.DisposeWhenGameObjectDestroyed(selfbehaviour);
             return retNodeChain;
         }
@@ -1699,7 +1699,7 @@ namespace QFramework
             return selfChain.Append(UntilAction.Allocate(condition));
         }
     }
-    
+
     public interface IActionChain : IAction
     {
         MonoBehaviour Executer { get; set; }
@@ -1708,7 +1708,7 @@ namespace QFramework
 
         IDisposeWhen Begin();
     }
-    
+
     public abstract class ActionChain : ActionKitAction, IActionChain, IDisposeWhen
     {
         public MonoBehaviour Executer { get; set; }
@@ -1778,7 +1778,7 @@ namespace QFramework
             mOnDisposedEvent = onDisposedEvent;
         }
     }
-    
+
     /// <summary>
     /// 事件注入,和 NodeSystem 配套使用
     /// </summary>
@@ -1818,7 +1818,7 @@ namespace QFramework
                 (triggerConditionWithNewValue == null || triggerConditionWithNewValue(newValue)));
         }
     }
-    
+
     [MonoSingletonPath("[ActionKit]/ActionQueue")]
     public class ActionQueue : MonoBehaviour, ISingleton
     {
@@ -1847,8 +1847,9 @@ namespace QFramework
             get { return MonoSingletonProperty<ActionQueue>.Instance; }
         }
     }
-    
-     #region API
+
+    #region API
+
     /// <summary>
     /// Unity 游戏框架搭建 (十九) 简易对象池：http://qframework.io/post/24/ 的例子
     /// </summary>
@@ -1857,7 +1858,7 @@ namespace QFramework
     {
         readonly Action<T> mResetMethod;
 
-        public SimpleObjectPool(Func<T> factoryMethod, Action<T> resetMethod = null,int initCount = 0)
+        public SimpleObjectPool(Func<T> factoryMethod, Action<T> resetMethod = null, int initCount = 0)
         {
             mFactory = new CustomObjectFactory<T>(factoryMethod);
             mResetMethod = resetMethod;
@@ -1874,19 +1875,22 @@ namespace QFramework
             {
                 mResetMethod.Invoke(obj);
             }
-            
+
             mCacheStack.Push(obj);
             return true;
         }
     }
-    
-/// <summary>
+
+    /// <summary>
     /// Object pool.
     /// </summary>
-internal class SafeObjectPool<T> : Pool<T>, ISingleton where T : IPoolable, new()
+    internal class SafeObjectPool<T> : Pool<T>, ISingleton where T : IPoolable, new()
     {
         #region Singleton
-        void ISingleton.OnSingletonInit() {}
+
+        void ISingleton.OnSingletonInit()
+        {
+        }
 
         protected SafeObjectPool()
         {
@@ -1902,6 +1906,7 @@ internal class SafeObjectPool<T> : Pool<T>, ISingleton where T : IPoolable, new(
         {
             SingletonProperty<SafeObjectPool<T>>.Dispose();
         }
+
         #endregion
 
         /// <summary>
@@ -1912,7 +1917,7 @@ internal class SafeObjectPool<T> : Pool<T>, ISingleton where T : IPoolable, new(
         public void Init(int maxCount, int initCount)
         {
             MaxCacheCount = maxCount;
-            
+
             if (maxCount > 0)
             {
                 initCount = Math.Min(maxCount, initCount);
@@ -1994,217 +1999,225 @@ internal class SafeObjectPool<T> : Pool<T>, ISingleton where T : IPoolable, new(
         }
     }
 
-/// <summary>
-	/// Object pool 4 class who no public constructor
-	/// such as SingletonClass.QEventSystem
-	/// </summary>
-internal class NonPublicObjectPool<T> :Pool<T>,ISingleton where T : class,IPoolable
-	{
-		#region Singleton
-		public void OnSingletonInit(){}
-		
-		public static NonPublicObjectPool<T> Instance
-		{
-			get { return SingletonProperty<NonPublicObjectPool<T>>.Instance; }
-		}
+    /// <summary>
+    /// Object pool 4 class who no public constructor
+    /// such as SingletonClass.QEventSystem
+    /// </summary>
+    internal class NonPublicObjectPool<T> : Pool<T>, ISingleton where T : class, IPoolable
+    {
+        #region Singleton
 
-		protected NonPublicObjectPool()
-		{
-			mFactory = new NonPublicObjectFactory<T>();
-		}
-		
-		public void Dispose()
-		{
-			SingletonProperty<NonPublicObjectPool<T>>.Dispose();
-		}
-		#endregion
+        public void OnSingletonInit()
+        {
+        }
 
-		/// <summary>
-		/// Init the specified maxCount and initCount.
-		/// </summary>
-		/// <param name="maxCount">Max Cache count.</param>
-		/// <param name="initCount">Init Cache count.</param>
-		public void Init(int maxCount, int initCount)
-		{
-			if (maxCount > 0)
-			{
-				initCount = Math.Min(maxCount, initCount);
-			}
+        public static NonPublicObjectPool<T> Instance
+        {
+            get { return SingletonProperty<NonPublicObjectPool<T>>.Instance; }
+        }
 
-			if (CurCount >= initCount) return;
-			
-			for (var i = CurCount; i < initCount; ++i)
-			{
-				Recycle(mFactory.Create());
-			}
-		}
+        protected NonPublicObjectPool()
+        {
+            mFactory = new NonPublicObjectFactory<T>();
+        }
 
-		/// <summary>
-		/// Gets or sets the max cache count.
-		/// </summary>
-		/// <value>The max cache count.</value>
-		public int MaxCacheCount
-		{
-			get { return mMaxCount; }
-			set
-			{
-				mMaxCount = value;
+        public void Dispose()
+        {
+            SingletonProperty<NonPublicObjectPool<T>>.Dispose();
+        }
 
-				if (mCacheStack == null) return;
-				if (mMaxCount <= 0) return;
-				if (mMaxCount >= mCacheStack.Count) return;
-				var removeCount = mMaxCount - mCacheStack.Count;
-				while (removeCount > 0)
-				{
-					mCacheStack.Pop();
-					--removeCount;
-				}
-			}
-		}
+        #endregion
 
-		/// <summary>
-		/// Allocate T instance.
-		/// </summary>
-		public override T Allocate()
-		{
-			var result = base.Allocate();
-			result.IsRecycled = false;
-			return result;
-		}
+        /// <summary>
+        /// Init the specified maxCount and initCount.
+        /// </summary>
+        /// <param name="maxCount">Max Cache count.</param>
+        /// <param name="initCount">Init Cache count.</param>
+        public void Init(int maxCount, int initCount)
+        {
+            if (maxCount > 0)
+            {
+                initCount = Math.Min(maxCount, initCount);
+            }
 
-		/// <summary>
-		/// Recycle the T instance
-		/// </summary>
-		/// <param name="t">T.</param>
-		public override bool Recycle(T t)
-		{
-			if (t == null || t.IsRecycled)
-			{
-				return false;
-			}
+            if (CurCount >= initCount) return;
 
-			if (mMaxCount > 0)
-			{
-				if (mCacheStack.Count >= mMaxCount)
-				{
-					t.OnRecycled();
-					return false;
-				}
-			}
+            for (var i = CurCount; i < initCount; ++i)
+            {
+                Recycle(mFactory.Create());
+            }
+        }
 
-			t.IsRecycled = true;
-			t.OnRecycled();
-			mCacheStack.Push(t);
+        /// <summary>
+        /// Gets or sets the max cache count.
+        /// </summary>
+        /// <value>The max cache count.</value>
+        public int MaxCacheCount
+        {
+            get { return mMaxCount; }
+            set
+            {
+                mMaxCount = value;
 
-			return true;
-		}
-	}
+                if (mCacheStack == null) return;
+                if (mMaxCount <= 0) return;
+                if (mMaxCount >= mCacheStack.Count) return;
+                var removeCount = mMaxCount - mCacheStack.Count;
+                while (removeCount > 0)
+                {
+                    mCacheStack.Pop();
+                    --removeCount;
+                }
+            }
+        }
 
-internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
-{
-	private static Stack<T> mPool = new Stack<T>(10);
+        /// <summary>
+        /// Allocate T instance.
+        /// </summary>
+        public override T Allocate()
+        {
+            var result = base.Allocate();
+            result.IsRecycled = false;
+            return result;
+        }
 
-	protected bool mInPool = false;
+        /// <summary>
+        /// Recycle the T instance
+        /// </summary>
+        /// <param name="t">T.</param>
+        public override bool Recycle(T t)
+        {
+            if (t == null || t.IsRecycled)
+            {
+                return false;
+            }
 
-	public static T Allocate()
-	{
-		var node = mPool.Count == 0 ? new T() : mPool.Pop();
-		node.mInPool = false;
-		return node;
-	}
+            if (mMaxCount > 0)
+            {
+                if (mCacheStack.Count >= mMaxCount)
+                {
+                    t.OnRecycled();
+                    return false;
+                }
+            }
 
-	public void Recycle2Cache()
-	{
-		OnRecycle();
-		mInPool = true;
-		mPool.Push(this as T);
-	}
+            t.IsRecycled = true;
+            t.OnRecycled();
+            mCacheStack.Push(t);
 
-	protected abstract void OnRecycle();
-}
+            return true;
+        }
+    }
+
+    internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
+    {
+        private static Stack<T> mPool = new Stack<T>(10);
+
+        protected bool mInPool = false;
+
+        public static T Allocate()
+        {
+            var node = mPool.Count == 0 ? new T() : mPool.Pop();
+            node.mInPool = false;
+            return node;
+        }
+
+        public void Recycle2Cache()
+        {
+            OnRecycle();
+            mInPool = true;
+            mPool.Push(this as T);
+        }
+
+        protected abstract void OnRecycle();
+    }
+
     #endregion
 
     #region interfaces
+
     /// <summary>
     /// 对象池接口
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal interface IPool<T>
     {
-	    /// <summary>
-	    /// 分配对象
-	    /// </summary>
-	    /// <returns></returns>
-	    T Allocate();
+        /// <summary>
+        /// 分配对象
+        /// </summary>
+        /// <returns></returns>
+        T Allocate();
 
-	    /// <summary>
-	    /// 回收对象
-	    /// </summary>
-	    /// <param name="obj"></param>
-	    /// <returns></returns>
-	    bool Recycle(T obj);
+        /// <summary>
+        /// 回收对象
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <returns></returns>
+        bool Recycle(T obj);
     }
-    
+
     /// <summary>
     /// I pool able.
     /// </summary>
     internal interface IPoolable
     {
-	    void OnRecycled();
-	    bool IsRecycled { get; set; }
+        void OnRecycled();
+        bool IsRecycled { get; set; }
     }
-    
+
     /// <summary>
     /// I cache type.
     /// </summary>
     internal interface IPoolType
     {
-	    void Recycle2Cache();
+        void Recycle2Cache();
     }
-    
+
     /// <summary>
     /// 对象池
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal abstract class Pool<T> : IPool<T>
     {
-	    #region ICountObserverable
-	    /// <summary>
-	    /// Gets the current count.
-	    /// </summary>
-	    /// <value>The current count.</value>
-	    public int CurCount
-	    {
-		    get { return mCacheStack.Count; }
-	    }
-	    #endregion
-        
-	    protected IObjectFactory<T> mFactory;
+        #region ICountObserverable
 
-	    /// <summary>
-	    /// 存储相关数据的栈
-	    /// </summary>
-	    protected readonly Stack<T> mCacheStack = new Stack<T>();
+        /// <summary>
+        /// Gets the current count.
+        /// </summary>
+        /// <value>The current count.</value>
+        public int CurCount
+        {
+            get { return mCacheStack.Count; }
+        }
 
-	    /// <summary>
-	    /// default is 5
-	    /// </summary>
-	    protected int mMaxCount = 12;
+        #endregion
 
-	    public virtual T Allocate()
-	    {
-		    return mCacheStack.Count == 0
-			    ? mFactory.Create()
-			    : mCacheStack.Pop();
-	    }
+        protected IObjectFactory<T> mFactory;
 
-	    public abstract bool Recycle(T obj);
+        /// <summary>
+        /// 存储相关数据的栈
+        /// </summary>
+        protected readonly Stack<T> mCacheStack = new Stack<T>();
+
+        /// <summary>
+        /// default is 5
+        /// </summary>
+        protected int mMaxCount = 12;
+
+        public virtual T Allocate()
+        {
+            return mCacheStack.Count == 0
+                ? mFactory.Create()
+                : mCacheStack.Pop();
+        }
+
+        public abstract bool Recycle(T obj);
     }
-    
 
     #endregion
 
     #region DataStructurePool
+
     /// <summary>
     /// 字典对象池：用于存储相关对象
     /// </summary>
@@ -2212,86 +2225,87 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
     /// <typeparam name="TValue"></typeparam>
     internal class DictionaryPool<TKey, TValue>
     {
-	    /// <summary>
-	    /// 栈对象：存储多个字典
-	    /// </summary>
-	    static Stack<Dictionary<TKey, TValue>> mListStack = new Stack<Dictionary<TKey, TValue>>(8);
+        /// <summary>
+        /// 栈对象：存储多个字典
+        /// </summary>
+        static Stack<Dictionary<TKey, TValue>> mListStack = new Stack<Dictionary<TKey, TValue>>(8);
 
-	    /// <summary>
-	    /// 出栈：从栈中获取某个字典数据
-	    /// </summary>
-	    /// <returns></returns>
-	    public static Dictionary<TKey, TValue> Get()
-	    {
-		    if (mListStack.Count == 0)
-		    {
-			    return new Dictionary<TKey, TValue>(8);
-		    }
+        /// <summary>
+        /// 出栈：从栈中获取某个字典数据
+        /// </summary>
+        /// <returns></returns>
+        public static Dictionary<TKey, TValue> Get()
+        {
+            if (mListStack.Count == 0)
+            {
+                return new Dictionary<TKey, TValue>(8);
+            }
 
-		    return mListStack.Pop();
-	    }
+            return mListStack.Pop();
+        }
 
-	    /// <summary>
-	    /// 入栈：将字典数据存储到栈中 
-	    /// </summary>
-	    /// <param name="toRelease"></param>
-	    public static void Release(Dictionary<TKey, TValue> toRelease)
-	    {
-		    toRelease.Clear();
-		    mListStack.Push(toRelease);
-	    }
+        /// <summary>
+        /// 入栈：将字典数据存储到栈中 
+        /// </summary>
+        /// <param name="toRelease"></param>
+        public static void Release(Dictionary<TKey, TValue> toRelease)
+        {
+            toRelease.Clear();
+            mListStack.Push(toRelease);
+        }
     }
-    
+
     /// <summary>
     /// 对象池字典 拓展方法类
     /// </summary>
     internal static class DictionaryPoolExtensions
     {
-	    /// <summary>
-	    /// 对字典拓展 自身入栈 的方法
-	    /// </summary>
-	    /// <typeparam name="TKey"></typeparam>
-	    /// <typeparam name="TValue"></typeparam>
-	    /// <param name="toRelease"></param>
-	    public static void Release2Pool<TKey,TValue>(this Dictionary<TKey, TValue> toRelease)
-	    {
-		    DictionaryPool<TKey,TValue>.Release(toRelease);
-	    }
+        /// <summary>
+        /// 对字典拓展 自身入栈 的方法
+        /// </summary>
+        /// <typeparam name="TKey"></typeparam>
+        /// <typeparam name="TValue"></typeparam>
+        /// <param name="toRelease"></param>
+        public static void Release2Pool<TKey, TValue>(this Dictionary<TKey, TValue> toRelease)
+        {
+            DictionaryPool<TKey, TValue>.Release(toRelease);
+        }
     }
+
     /// <summary>
     /// 链表对象池：存储相关对象
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal static class ListPool<T>
     {
-	    /// <summary>
-	    /// 栈对象：存储多个List
-	    /// </summary>
-	    static Stack<List<T>> mListStack = new Stack<List<T>>(8);
+        /// <summary>
+        /// 栈对象：存储多个List
+        /// </summary>
+        static Stack<List<T>> mListStack = new Stack<List<T>>(8);
 
-	    /// <summary>
-	    /// 出栈：获取某个List对象
-	    /// </summary>
-	    /// <returns></returns>
-	    public static List<T> Get()
-	    {
-		    if (mListStack.Count == 0)
-		    {
-			    return new List<T>(8);
-		    }
+        /// <summary>
+        /// 出栈：获取某个List对象
+        /// </summary>
+        /// <returns></returns>
+        public static List<T> Get()
+        {
+            if (mListStack.Count == 0)
+            {
+                return new List<T>(8);
+            }
 
-		    return mListStack.Pop();
-	    }
+            return mListStack.Pop();
+        }
 
-	    /// <summary>
-	    /// 入栈：将List对象添加到栈中
-	    /// </summary>
-	    /// <param name="toRelease"></param>
-	    public static void Release(List<T> toRelease)
-	    {
-		    toRelease.Clear();
-		    mListStack.Push(toRelease);
-	    }
+        /// <summary>
+        /// 入栈：将List对象添加到栈中
+        /// </summary>
+        /// <param name="toRelease"></param>
+        public static void Release(List<T> toRelease)
+        {
+            toRelease.Clear();
+            mListStack.Push(toRelease);
+        }
     }
 
     /// <summary>
@@ -2299,25 +2313,25 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
     /// </summary>
     internal static class ListPoolExtensions
     {
-	    /// <summary>
-	    /// 给List拓展 自身入栈 的方法
-	    /// </summary>
-	    /// <typeparam name="T"></typeparam>
-	    /// <param name="toRelease"></param>
-	    public static void Release2Pool<T>(this List<T> toRelease)
-	    {
-		    ListPool<T>.Release(toRelease);
-	    }
+        /// <summary>
+        /// 给List拓展 自身入栈 的方法
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="toRelease"></param>
+        public static void Release2Pool<T>(this List<T> toRelease)
+        {
+            ListPool<T>.Release(toRelease);
+        }
     }
 
     #endregion
 
     #region Factories
-    
-     /// <summary>
+
+    /// <summary>
     /// 对象工厂
     /// </summary>
-     internal class ObjectFactory
+    internal class ObjectFactory
     {
         /// <summary>
         /// 动态创建类的实例：创建有参的构造函数
@@ -2338,7 +2352,7 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
         /// <returns></returns>
         public static T Create<T>(params object[] constructorArgs)
         {
-            return (T) Create(typeof(T), constructorArgs);
+            return (T)Create(typeof(T), constructorArgs);
         }
 
         /// <summary>
@@ -2369,7 +2383,7 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
         /// <returns></returns>
         public static T CreateNonPublicConstructorObject<T>()
         {
-            return (T) CreateNonPublicConstructorObject(typeof(T));
+            return (T)CreateNonPublicConstructorObject(typeof(T));
         }
 
         /// <summary>
@@ -2402,75 +2416,77 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
             return obj;
         }
     }
-     
+
     /// <summary>
     /// 自定义对象工厂：相关对象是 自己定义 
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal class CustomObjectFactory<T> : IObjectFactory<T>
     {
-	    public CustomObjectFactory(Func<T> factoryMethod)
-	    {
-		    mFactoryMethod = factoryMethod;
-	    }
+        public CustomObjectFactory(Func<T> factoryMethod)
+        {
+            mFactoryMethod = factoryMethod;
+        }
 
-	    protected Func<T> mFactoryMethod;
+        protected Func<T> mFactoryMethod;
 
-	    public T Create()
-	    {
-		    return mFactoryMethod();
-	    }
+        public T Create()
+        {
+            return mFactoryMethod();
+        }
     }
-    
+
     /// <summary>
     /// 默认对象工厂：相关对象是通过New 出来的
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal class DefaultObjectFactory<T> : IObjectFactory<T> where T : new()
     {
-	    public T Create()
-	    {
-		    return new T();
-	    }
+        public T Create()
+        {
+            return new T();
+        }
     }
-    
+
     /// <summary>
     /// 对象工厂接口
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal interface IObjectFactory<T>
     {
-	    /// <summary>
-	    /// 创建对象
-	    /// </summary>
-	    /// <returns></returns>
-	    T Create();
+        /// <summary>
+        /// 创建对象
+        /// </summary>
+        /// <returns></returns>
+        T Create();
     }
-    
+
     /// <summary>
     /// 没有公共构造函数的对象工厂：相关对象只能通过反射获得
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal class NonPublicObjectFactory<T> : IObjectFactory<T> where T : class
     {
-	    public T Create()
-	    {
-		    var ctors = typeof(T).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic);
-		    var ctor = Array.Find(ctors, c => c.GetParameters().Length == 0);
+        public T Create()
+        {
+            var ctors = typeof(T).GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic);
+            var ctor = Array.Find(ctors, c => c.GetParameters().Length == 0);
 
-		    if (ctor == null)
-		    {
-			    throw new Exception("Non-Public Constructor() not found! in " + typeof(T) + "\n 在没有找到非 public 的构造方法");
-		    }
+            if (ctor == null)
+            {
+                throw new Exception("Non-Public Constructor() not found! in " + typeof(T) + "\n 在没有找到非 public 的构造方法");
+            }
 
-		    return ctor.Invoke(null) as T;
-	    }
+            return ctor.Invoke(null) as T;
+        }
     }
+
     #endregion
 
 
     #region SingletonKit For Pool
-     /// <summary>
+
+    /// <summary>
     /// 单例接口
     /// </summary>
     internal interface ISingleton
@@ -3043,11 +3059,9 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
         }
     }
 
-    
-
     #endregion
-    
-     public abstract class ActionKitTable<TDataItem> : IEnumerable<TDataItem>, IDisposable
+
+    public abstract class ActionKitTable<TDataItem> : IEnumerable<TDataItem>, IDisposable
     {
         public void Add(TDataItem item)
         {
@@ -3167,4 +3181,243 @@ internal abstract class AbstractPool<T> where T : AbstractPool<T>, new()
             mIndex = null;
         }
     }
+
+
+    #region ECA
+
+    public class EmptyEventData
+    {
+        public static EmptyEventData Default;
+    }
+
+    public interface IECAEvent<T>
+    {
+        void Register(UnityAction<T> onEvent);
+        void UnRegister(UnityAction<T> onEvent);
+        void Trigger(T t);
+    }
+
+    public interface IECACondition<T>
+    {
+        bool Match(T t);
+    }
+
+    public interface IECAAction<T>
+    {
+        void Execute(T t);
+    }
+
+    public interface IECARule<T> : IDisposable
+    {
+        IECAEvent<T> E { get; set; }
+        IECACondition<T> C { get; set; }
+        IECAAction<T> A { get; set; }
+
+        IECARule<T> Build();
+    }
+
+    public class ECARule<T> : IECARule<T>
+    {
+        public IECAEvent<T> E { get; set; }
+        public IECACondition<T> C { get; set; }
+        public IECAAction<T> A { get; set; }
+
+
+        void OnEvent(T t)
+        {
+            if (C.Match(t))
+            {
+                A.Execute(t);
+            }
+        }
+
+        public IECARule<T> Build()
+        {
+            E.Register(OnEvent);
+            return this;
+        }
+
+        public void Dispose()
+        {
+            E.UnRegister(OnEvent);
+            E = null;
+            C = null;
+            A = null;
+        }
+    }
+
+    public class CustomECACondition<T> : IECACondition<T>
+    {
+        private readonly Func<T, bool> mCondition;
+
+        public CustomECACondition(Func<T, bool> condition)
+        {
+            mCondition = condition;
+        }
+
+
+        public bool Match(T t)
+        {
+            return mCondition.Invoke(t);
+        }
+    }
+
+    public class CustomECAAction<T> : IECAAction<T>
+    {
+        private readonly UnityAction<T> mAction;
+
+        public CustomECAAction(UnityAction<T> action)
+        {
+            mAction = action;
+        }
+
+
+        public void Execute(T t)
+        {
+            mAction?.Invoke(t);
+        }
+    }
+
+    public static class ECARuleExtension
+    {
+        public static IECARule<T> Condition<T>(this IECARule<T> self, Func<T, bool> condition)
+        {
+            self.C = new CustomECACondition<T>(condition);
+            return self;
+        }
+
+        public static IECARule<T> Condition<T>(this IECARule<T> self, Func<bool> condition)
+        {
+            self.C = new CustomECACondition<T>(_ => condition());
+            return self;
+        }
+
+        public static IECARule<T> Action<T>(this IECARule<T> self, UnityAction<T> action)
+        {
+            self.A = new CustomECAAction<T>(action);
+            return self;
+        }
+
+        public static IECARule<T> Action<T>(this IECARule<T> self, UnityAction action)
+        {
+            self.A = new CustomECAAction<T>(_ => action());
+            return self;
+        }
+    }
+
+    public class UnityEventT<T> : UnityEvent<T>
+    {
+    }
+
+    public class MonoEventTrigger<T> : MonoBehaviour, IECAEvent<T>
+    {
+        public UnityEvent<T> Event = new UnityEventT<T>();
+
+        public void Register(UnityAction<T> onEvent)
+        {
+            Event.AddListener(onEvent);
+        }
+
+        public void UnRegister(UnityAction<T> onEvent)
+        {
+            Event.RemoveListener(onEvent);
+        }
+
+        public void Trigger(T t)
+        {
+            Event?.Invoke(t);
+        }
+    }
+
+
+    public class UpdateTrigger : MonoEventTrigger<EmptyEventData>
+    {
+        private void Update()
+        {
+            Trigger(EmptyEventData.Default);
+        }
+    }
+
+    public class FixedUpdateTrigger : MonoEventTrigger<EmptyEventData>
+    {
+        private void FixedUpdate()
+        {
+            Trigger(EmptyEventData.Default);
+        }
+    }
+
+    public class LateUpdateTrigger : MonoEventTrigger<EmptyEventData>
+    {
+        private void LateUpdate()
+        {
+            Trigger(EmptyEventData.Default);
+        }
+    }
+
+    public class OnTriggerEnter2DTrigger : MonoEventTrigger<Collider2D>
+    {
+        private void OnTriggerEnter2D(Collider2D col)
+        {
+            Trigger(col);
+        }
+    }
+
+    public static class ECARuleTriggerExtension
+    {
+        public static void OnUpdate(this Component self, UnityAction onUpdate)
+        {
+            self.UpdateEvent().Condition(_ => true).Action(_ => onUpdate()).Build();
+        }
+
+        public static void OnFixedUpdate(this Component self, UnityAction onFixedUpdate)
+        {
+            self.FixedUpdateEvent().Condition(_ => true).Action(_ => onFixedUpdate()).Build();
+        }
+
+        public static void OnLateUpdate(this Component self, UnityAction onLateUpdate)
+        {
+            self.LateUpdateEvent().Condition(_ => true).Action(_ => onLateUpdate()).Build();
+        }
+
+        public static IECARule<EmptyEventData> UpdateEvent(this Component self)
+        {
+            return new ECARule<EmptyEventData>
+            {
+                E = Utils.GetOrAddComponent<UpdateTrigger>(self.gameObject)
+            };
+        }
+
+        public static IECARule<EmptyEventData> FixedUpdateEvent(this Component self)
+        {
+            return new ECARule<EmptyEventData>
+            {
+                E = Utils.GetOrAddComponent<FixedUpdateTrigger>(self.gameObject)
+            };
+        }
+
+        public static IECARule<EmptyEventData> LateUpdateEvent(this Component self)
+        {
+            return new ECARule<EmptyEventData>
+            {
+                E = Utils.GetOrAddComponent<LateUpdateTrigger>(self.gameObject)
+            };
+        }
+    }
+
+    internal static class Utils
+    {
+        public static T GetOrAddComponent<T>(GameObject gameObject) where T : MonoBehaviour
+        {
+            var t = gameObject.GetComponent<T>();
+
+            if (!t)
+            {
+                t = gameObject.AddComponent<T>();
+            }
+
+            return t;
+        }
+    }
+
+    #endregion
 }
