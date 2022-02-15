@@ -4,6 +4,8 @@
  * https://qframework.cn
  * https://github.com/liangxiegame/QFramework
  * https://gitee.com/liangxiegame/QFramework
+ *
+ * Latest Update: 2021.2.15 11:48 this.Delay Add Return Value
  ****************************************************************************/
 
 using System;
@@ -83,10 +85,12 @@ namespace QFramework
 
     public static class DelayActionExtensions
     {
-        public static void Delay<T>(this T selfBehaviour, float seconds, System.Action delayEvent)
+        public static IAction Delay<T>(this T selfBehaviour, float seconds, System.Action delayEvent)
             where T : MonoBehaviour
         {
-            selfBehaviour.ExecuteNode(DelayAction.Allocate(seconds, delayEvent));
+            var delayAction = DelayAction.Allocate(seconds, delayEvent);
+            selfBehaviour.ExecuteNode(delayAction);
+            return delayAction;
         }
 
         public static IActionChain Delay(this IActionChain selfChain, float seconds)
@@ -1637,7 +1641,8 @@ namespace QFramework
             selBehaviour.StartCoroutine(commandNode.Execute());
             return selBehaviour;
         }
-        
+
+        private static WaitForEndOfFrame mEndOfFrame = new WaitForEndOfFrame();
         
         public static IEnumerator Execute(this IAction selfNode)
         {
@@ -1645,7 +1650,7 @@ namespace QFramework
 
             while (!selfNode.Execute(Time.deltaTime))
             {
-                yield return null;
+                yield return mEndOfFrame;
             }
         }
     }
