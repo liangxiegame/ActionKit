@@ -1455,6 +1455,8 @@ namespace QFramework
 
         public bool Execute(float dt)
         {
+            if (mDisposed) return true;
+
             // 有可能被别的地方调用
             if (Finished)
             {
